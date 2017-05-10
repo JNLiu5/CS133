@@ -5,113 +5,38 @@
 #define block_size 64
 
 void mmul(float *A, float *B, float *C, int n)  {
-    int rank, size, rows, remainder, num_workers, i, j, k, offset;
-   
-    MPI_Status status;
+    int rank, size, rows, i, j, k;
 
+    MPI_Status status;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    
-    num_workers = size - 1;
-    rows = n / num_workers;
-    remainder = n % num_workers;
 
-    int counts[size];
-    int row_offsets[size];
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    rows = n / size;
 
-    //  processor 0 does no work, only scattering/gathering
-    counts[0] = 0;
-    offset[0] = 0;
+    float A_local[rows * n];
+    MPI_Scatter(A, rows * n, MPI_FLOAT, A_local, rows * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-    offset = 0;
-    for(i = 1; i < size; i++) {
-        int assignment = rows;
-        if(i < remainder) {
-            assignment++;
-        }
-        assignment *= n;
-
-        counts[i] = assignment;
-        row_offsets[i] = offset;
-        offset += assignment;
+    if(rank != 0) {
+        B = (float*)malloc(sizeof(float) * n * n);
     }
+    MPI_Bcast(B, n * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
     
-    //  send parts of matrix A
-    MPI_Scatterv(A, counts, row_offsets, MPI_FLOAT, 
-    //  send all of matrix B
+    float C_local[rows * n];
 
-    //   master 
-    if(rank == 0) {
-
-
-
-
-
-
-
-
-
-
-
-
-        int num_workers = size - 1;
-        rows = n / num_workers;
-        remainder = n % num_workers;
-        rows_offset = 0;
-        //  send data to workers
-        int worker;
-        for(worker = 1; worker < size; worker++) {
-            MPI_Send(&rows, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
-            MPI_Send(&rows_offset, 1, MPI_INT, worker, 1, MPI_COMM_WORLD);
-            if(worker == size - 1) {
-                //  if worker is the last one, also send them the remainder
-                MPI_Send(&remainder, 1, MPI_INT, worker, 2, MPI_COMM_WORLD);
-                MPI_Send(A + (rows_offset * n), (rows + remainder) * n, MPI_FLOAT, worker, 3, MPI_COMM_WORLD);
-            }
-            else {
-                //  otherwise, send them 0
-                int zero = 0;
-                MPI_Send(&zero, 1, MPI_INT, worker, 2, MPI_COMM_WORLD);
-                MPI_Send(A + (rows_offset * n), rows * n, MPI_FLOAT, worker, 3, MPI_COMM_WORLD);
-            }
-            MPI_Send(B, n * n, MPI_FLOAT, worker, 4, MPI_COMM_WORLD);
-            rows_offset += rows;
-        }
-
-        //  gather data from workers
-        for(worker = 1; worker < size; worker++) {
-           MPI_Recv(&rows, 1, MPI_INT, worker, 0, MPI_COMM_WORLD, &status);
-           MPI_Recv(&rows_offset, 1, MPI_INT, worker, 1, MPI_COMM_WORLD, &status);
-           MPI_Recv(C + rows_offset * n, rows * n, MPI_FLOAT, worker, 2, MPI_COMM_WORLD, &status);
-        }
+    for(i = 0; i < rows; i++) {
+       for(j = 0; j < n; j++) {
+           C_local[i * n + j] = 0;
+           for(k = 0; k < n; k++) {
+               C_local[i * n + j] += A_local[i * n + k] * B[k * n + j];
+           }
+       }
     }
-    //  worker
-    else {
-        MPI_Recv(&rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
-        MPI_Recv(&rows_offset, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
-        MPI_Recv(&remainder, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, &status);
-        rows += remainder;
 
-        float A_local[rows * n];
-        float B_local[n * n];
-        float C_local[rows * n];
+    MPI_Gather(C_local, rows * n, MPI_FLOAT, C, rows * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-        MPI_Recv(&A_local, rows * n, MPI_FLOAT, 0, 3, MPI_COMM_WORLD, &status);
-        MPI_Recv(&B_local, n * n, MPI_FLOAT, 0, 4, MPI_COMM_WORLD, &status);
-
-        int i, j, k;
-        for(i = 0; i < rows; i++) {
-            for(j = 0; j < n; j++) {
-                C_local[i * n + j] = 0;
-                for(k = 0; k < n; k++) {
-                    C_local[i * n + j] += A_local[i * n + k]*B_local[k * n + j];
-                }
-            }
-        }
-
-        MPI_Send(&rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(&rows_offset, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
-        MPI_Send(C_local, rows * n, MPI_INT, 0, 2, MPI_COMM_WORLD);
+    if(rank != 0) {
+        free(B);
     }
 }
 
