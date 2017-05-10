@@ -5,14 +5,55 @@
 #define block_size 64
 
 void mmul(float *A, float *B, float *C, int n)  {
-    int rank, size, rows, rows_offset, remainder;
+    int rank, size, rows, remainder, num_workers, i, j, k, offset;
+   
     MPI_Status status;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+    
+    num_workers = size - 1;
+    rows = n / num_workers;
+    remainder = n % num_workers;
+
+    int counts[size];
+    int row_offsets[size];
+
+    //  processor 0 does no work, only scattering/gathering
+    counts[0] = 0;
+    offset[0] = 0;
+
+    offset = 0;
+    for(i = 1; i < size; i++) {
+        int assignment = rows;
+        if(i < remainder) {
+            assignment++;
+        }
+        assignment *= n;
+
+        counts[i] = assignment;
+        row_offsets[i] = offset;
+        offset += assignment;
+    }
+    
+    //  send parts of matrix A
+    MPI_Scatterv(A, counts, row_offsets, MPI_FLOAT, 
+    //  send all of matrix B
 
     //   master 
     if(rank == 0) {
+
+
+
+
+
+
+
+
+
+
+
+
         int num_workers = size - 1;
         rows = n / num_workers;
         remainder = n % num_workers;
