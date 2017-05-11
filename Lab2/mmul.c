@@ -29,16 +29,19 @@ void mmul(float *A, float *B, float *C, int n)  {
         C_local[i] = 0;
     }
     
-    int bi, bj;
+    int bi, bj, bk;
     int i_blocks = rows / block_size;
     int j_blocks = n / block_size;
+    int k_blocks = n / block_size;
 
     for(i = 0; i < i_blocks; i++) {
-        for(j = 0; j < j_blocks; j++) {
-            for(k = 0; k < n; k++) {
+        for(k = 0; k < k_blocks; k++) {
+            for(j = 0; j < j_blocks; j++) {
                 for(bi = 0; bi < block_size; bi++) {
-                    for(bj = 0; bj < block_size; bj++) {
-                        C_local[(i * block_size + bi) * n + (j * block_size + bj)] += A_local[(i * block_size + bi) * n + k] * B[k * n + (j * block_size + bj)];
+                    for(bk = 0; bk < block_size; bk++) {
+                        for(bj = 0; bj < block_size; bj++) {
+                            C_local[(i * block_size + bi) * n + (j * block_size + bj)] += A_local[(i * block_size + bi) * n + k * block_size + bk] * B[(k * block_size + bk) * n + (j * block_size + bj)];
+                        }
                     }
                 }
             }
