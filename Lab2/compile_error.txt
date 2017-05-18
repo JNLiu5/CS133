@@ -1,0 +1,1 @@
+./lab2_test: line 59: mpicc: command not found
